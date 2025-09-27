@@ -1,90 +1,84 @@
 import cv2
 import mediapipe as mp
+from deepface import DeepFace
 import numpy as np
 
-class HandTracker:
-    def __init__(self):
-        # Initialize MediaPipe hands
-        self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=2,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5
-        )
-        self.mp_draw = mp.solutions.drawing_utils
-        
-    def process_frame(self, frame):
-        # Convert BGR to RGB
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        
-        # Process the frame
-        results = self.hands.process(rgb_frame)
-        
-        # Draw hand landmarks
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                # Draw landmarks and connections
-                self.mp_draw.draw_landmarks(
-                    frame, 
-                    hand_landmarks, 
-                    self.mp_hands.HAND_CONNECTIONS,
-                    self.mp_draw.DrawingSpec(color=(0, 0, 255), thickness=2, circle_radius=2),
-                    self.mp_draw.DrawingSpec(color=(0, 255, 0), thickness=2)
-                )
-                
-                # Optional: Get landmark coordinates
-                for idx, landmark in enumerate(hand_landmarks.landmark):
-                    height, width, _ = frame.shape
-                    x, y = int(landmark.x * width), int(landmark.y * height)
-                    
-                    # Draw landmark numbers (optional)
-                    cv2.putText(frame, str(idx), (x, y), 
-                              cv2.FONT_HERSHEY_SIMPLEX, 0.3, (255, 255, 255), 1)
-        
-        return frame
+# Initialize MediaPipe Selfie Segmentation
+mp_selfie_segmentation = mp.solutions.selfie_segmentation
+segmenter = mp_selfie_segmentation.SelfieSegmentation(model_selection=1)
 
-def main():
-    # Initialize hand tracker
-    tracker = HandTracker()
-    
-    # Initialize webcam
-    cap = cv2.VideoCapture(0)
-    
-    if not cap.isOpened():
-        print("Error: Could not open webcam")
-        return
-    
-    print("Hand tracking started. Press 'q' to quit.")
-    
-    while True:
-        # Read frame from webcam
-        ret, frame = cap.read()
-        
-        if not ret:
-            print("Error: Could not read frame")
-            break
-        
-        # Flip frame horizontally for mirror effect
-        frame = cv2.flip(frame, 1)
-        
-        # Process frame for hand tracking
-        frame = tracker.process_frame(frame)
-        
-        # Add instructions
-        cv2.putText(frame, "Press 'q' to quit", (10, 30), 
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-        
-        # Display frame
-        cv2.imshow('Hand Skeleton Tracker', frame)
-        
-        # Exit on 'q' press
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-    
-    # Clean up
-    cap.release()
-    cv2.destroyAllWindows()
+# Start video capture
+cap = cv2.VideoCapture(0)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
-if __name__ == "__main__":
-    main()
+frame_count = 0
+emotion_text = "Detecting..."
+
+# Load background image
+bg_image_path = "bg.png"  # Change this to your image path
+try:
+    bg_image = cv2.imread(bg_image_path)
+    if bg_image is None:
+        print(f"Warning: Could not load background image from {bg_image_path}")
+        print("Using solid color background instead")
+        use_image_bg = False
+        bg_color = (0, 128, 255)  # Fallback solid color
+    else:
+        use_image_bg = True
+        print(f"Loaded background image: {bg_image_path}")
+except Exception as e:
+    print(f"Error loading background image: {e}")
+    use_image_bg = False
+    bg_color = (0, 128, 255)  # Fallback solid color
+
+
+while True:
+    ret, frame = cap.read()
+    if not ret:
+        break
+
+    frame_count += 1
+    frame = cv2.resize(frame, (1280, 720))
+
+    # Only analyze emotion every 10th frame
+    if frame_count % 10 == 0:
+        try:
+            result = DeepFace.analyze(frame, actions=['emotion'], enforce_detection=False)
+            emotion_text = result[0]['dominant_emotion']
+        except:
+            pass
+
+    # Convert frame to RGB for MediaPipe
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    results = segmenter.process(rgb_frame)
+
+    # Create mask and apply background (image or solid color)
+    mask = results.segmentation_mask
+    condition = np.stack((mask,) * 3, axis=-1) > 0.5  # True for person, False for bg
+    
+    if use_image_bg:
+        # Resize background image to match frame dimensions
+        bg_frame = cv2.resize(bg_image, (frame.shape[1], frame.shape[0]))
+    else:
+        # Use solid color background
+        bg_frame = np.zeros(frame.shape, dtype=np.uint8)
+        bg_frame[:] = bg_color
+        
+    output_frame = np.where(condition, frame, bg_frame)
+
+    # Overlay emotion/temperature
+    cv2.putText(output_frame, f'Emotion: {emotion_text}', (50, 50),
+                cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+ 
+
+    # Display
+    cv2.namedWindow("Virtual Background", cv2.WND_PROP_FULLSCREEN)
+    cv2.setWindowProperty("Virtual Background", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+    cv2.imshow("Virtual Background", output_frame)
+
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+
+cap.release()
+cv2.destroyAllWindows()
