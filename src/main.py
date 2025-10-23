@@ -1,5 +1,5 @@
 import cv2
-import audio_manager
+import realtime_voice_client
 from calculate_fps import calculate_fps
 from echo_miro import EchoMiro
 
