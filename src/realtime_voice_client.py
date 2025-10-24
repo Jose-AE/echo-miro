@@ -166,7 +166,7 @@ class RealtimeVoiceClient:
         )
 
         async for event in self.connection:  # will keep iterating in events until something calls break
-            print(f"[EVENT] {event.type}")  # Debug output (commented out for cleaner output)
+            # print(f"[EVENT] {event.type}")  # Debug output (commented out for cleaner output)
 
             if get_user_is_engaged and not get_user_is_engaged():  ## check if user is still engaged
                 print("User is no longer engaged. Ending listen_and_respond.")

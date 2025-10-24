@@ -1,3 +1,5 @@
+import os
+import random
 from typing import Literal
 import cv2
 import asyncio
@@ -6,7 +8,6 @@ from get_emotion_from_frame import get_emotion_from_frame
 from replace_background import replace_background
 import threading
 import time
-import multiprocessing as mp
 from realtime_voice_client import RealtimeVoiceClient
 
 Emotion = Literal[
@@ -45,18 +46,20 @@ class EchoMiro:
         # Emotion state
         self.live_emotion: Emotion = None
         self.detected_emotion: Emotion = None
+        self.selected_image = "images/default.png"
 
         # Emotion collection state
         self.is_collecting_emotions: bool = False
         self.collection_start_time: float | None = None
         self.collection_duration: float = 5.0  # seconds to collect emotions
 
-        # self.state: Literal["waiting_for_emotion", "interacting_with_user"] = "waiting_for_emotion"
+        # debug
+        self.debug_color = (219, 73, 24)
 
         self.__init_opencv()
 
     def __init_opencv(self):
-        self.video_capture = cv2.VideoCapture(self.camera_index)
+        self.video_capture = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
         if not self.video_capture.isOpened():
             print("Error: Could not open webcam.")
             exit()
@@ -68,9 +71,14 @@ class EchoMiro:
             cv2.namedWindow("Emotion Detection (Press 'q' to exit)", cv2.WND_PROP_FULLSCREEN)
             cv2.setWindowProperty("Emotion Detection (Press 'q' to exit)", cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
-    def select_random_emotion_image(emotion: Emotion) -> str:
+    def select_random_emotion_image(self, emotion: Emotion) -> str:
+        # read all image names inside folder images/[emotion]
 
-        return ""
+        image_folder = f"images/{emotion}"
+        image_files = os.listdir(image_folder)
+        if not image_files:
+            return ""
+        return os.path.join(image_folder, random.choice(image_files))
 
     def opencv_thread(self):
         while True:
@@ -79,6 +87,11 @@ class EchoMiro:
             if not ret:
                 print("Error: Could not read frame.")
                 continue
+
+            # Flip frame horizontally to create mirror effect
+            frame = cv2.flip(frame, 1)
+            # frame = cv2.resize(frame, self.capture_resolution)
+            # frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
             # Detect emotion and check for engagement every few frames
             if self.frame_count % self.emotion_capture_interval == 0:
@@ -92,7 +105,7 @@ class EchoMiro:
                     self.user_is_engaged = False
                     self.last_time_user_engaged = None
 
-            frame = replace_background(frame, background_image_path=None)
+            frame = replace_background(frame, background_image_path=self.selected_image, show_face=True)
 
             # Unpack bbox for drawing
             x, y, w, h = self.emotion_bbox
@@ -101,24 +114,24 @@ class EchoMiro:
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
             cv2.putText(frame, self.live_emotion if self.live_emotion else "Unknown", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
             # Display FPS on the frame
-            cv2.putText(frame, f"FPS: {calculate_fps():.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 2)
+            cv2.putText(frame, f"FPS: {calculate_fps():.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, self.debug_color, 2)
             cv2.putText(
                 frame,
                 "User Engaged" if self.user_is_engaged else "User Not Engaged",
-                (300, 30),
+                (500, 30),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
-                (0, 0, 0),
-                1,
+                self.debug_color,
+                2,
             )
             # show detected emotion
             cv2.putText(
                 frame,
                 f"Detected Emotion: {self.detected_emotion if self.detected_emotion else 'Unknown'}",
-                (10, 50),
+                (10, 70),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 1,
-                (0, 0, 0),
+                self.debug_color,
                 2,
             )
 
@@ -129,10 +142,10 @@ class EchoMiro:
                 cv2.putText(
                     frame,
                     f"Collecting emotions: {remaining:.1f}s",
-                    (10, 70),
+                    (10, 100),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     1,
-                    (0, 0, 0),
+                    self.debug_color,
                     2,
                 )
 
@@ -152,7 +165,6 @@ class EchoMiro:
         Collects emotions over the specified period and returns the most prevalent one.
         Ignores None values (when no face is detected).
         """
-        self.detected_emotion = None  # Reset detected emotion
         dict_emotion_counts = {}
         start_time = time.time()
         end_time = start_time + seconds
@@ -178,6 +190,7 @@ class EchoMiro:
         if not dict_emotion_counts:
             print("No emotions detected during collection period.")
             self.detected_emotion = None
+            return
 
         prevalent_emotion = max(dict_emotion_counts, key=dict_emotion_counts.get)
         print(f"\n{'='*50}")
@@ -187,11 +200,17 @@ class EchoMiro:
         print(f"{'='*50}\n")
 
         self.detected_emotion = prevalent_emotion
+        self.selected_image = self.select_random_emotion_image(prevalent_emotion)
 
     async def __main(self):
+        print("Waiting for realtime client to connect")
         await self.realtime_voice_client.init()
 
         while True:
+            # Reset emotion state
+            self.detected_emotion = None
+            self.selected_image = "images/default.png"
+
             # Wait for user to face the camera
             if not self.user_is_engaged:
                 print("Waiting for user to face the camera...")
@@ -211,8 +230,6 @@ class EchoMiro:
             print(f"✅ Starting interaction with emotion: {self.detected_emotion}")
             await self.realtime_voice_client.listen_and_respond(emotion=self.detected_emotion, get_user_is_engaged=lambda: self.user_is_engaged)
 
-            # Reset after interaction
-            self.detected_emotion = None
             print("\n💬 Interaction complete. Waiting for next user...\n")
 
     def run(self):
