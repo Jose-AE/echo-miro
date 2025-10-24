@@ -15,6 +15,10 @@ CHUNK_DURATION = 0.1  # seconds per chunk
 class RealtimeVoiceClient:
     def __init__(self, voice="ash", model="gpt-realtime-mini"):
 
+        self.greeting_instructions = """
+        Start by Asking the visitor why he feels that emotion
+        """
+
         self.instructions = """
         You are a magical smart mirror inspired by the Mirror of Erised from the Harry Potter universe. 
         Each person who stands before you is a new visitor seeking wisdom or comfort. You respond to their 
@@ -89,6 +93,7 @@ class RealtimeVoiceClient:
             }
         )
         self.__init_audio_streams()
+        print("RealtimeVoiceClient initialized.")
 
     def __init_audio_streams(self):
         self.input_stream = sd.InputStream(
@@ -120,21 +125,13 @@ class RealtimeVoiceClient:
 
             await asyncio.sleep(0)
 
-    async def stop_reading_and_sending_audio_input(self):
-        self.listening_to_audio_input = False
-        # Give the sender task a moment to observe the flag change
-        await asyncio.sleep(0)
-        await self.connection.send({"type": "input_audio_buffer.clear"})
-
     def on_receive_audio_delta(self, delta):  # Decode and play audio response
         audio_bytes = base64.b64decode(delta)
         audio_array = np.frombuffer(audio_bytes, dtype=np.int16)
         if self.output_stream:
             self.output_stream.write(audio_array)
 
-    def on_receive_text_delta(self, delta):
-        return
-        print("Text response: ")
+    def on_receive_transcript_delta(self, delta):
         print(delta, end="", flush=True)
 
     async def set_emotion(self, emotion="neutral"):
@@ -148,39 +145,58 @@ class RealtimeVoiceClient:
             },
         )
 
-    async def listen_and_respond(self, emotion="sad"):
-        self.listening_to_audio_input = True
-
+    async def listen_and_respond(
+        self,
+        emotion="sad",
+        get_user_is_engaged=None,
+    ):
         # Update instructions with the current emotion
         await self.set_emotion(emotion)
 
+        # Clear Audio for new convo
+        # await self.connection.send({"type": "input_audio_buffer.clear"})
+
+        # Don't stream mic input during the greeting
+        self.listening_to_audio_input = False
+        await self.connection.send(
+            {
+                "type": "response.create",
+                "response": {"instructions": self.instructions.format(emotion=emotion) + self.greeting_instructions},
+            }
+        )
+
         async for event in self.connection:  # will keep iterating in events until something calls break
-            # print(f"Event: {event.type}")  # Debug output (commented out for cleaner output)
+            print(f"[EVENT] {event.type}")  # Debug output (commented out for cleaner output)
+
+            if get_user_is_engaged and not get_user_is_engaged():  ## check if user is still engaged
+                print("User is no longer engaged. Ending listen_and_respond.")
+                break
 
             if event.type == "input_audio_buffer.speech_started":
                 print("\n[Speech detected]")
 
-            if event.type == "input_audio_buffer.speech_stopped":
+            elif event.type == "input_audio_buffer.speech_stopped":
                 print("\n[Speech ended, waiting for response...]")
-                self.listening_to_audio_input = False  # stop sending audio until we get response
+                self.listening_to_audio_input = False  # pause sending audio input
 
-            if event.type == "response.output_audio_transcript.delta":
-                print(f"\n[Recived audio transcript delta]: {event.delta}", flush=True)
+            elif event.type == "response.created":
+                print("\n[Response started]")
 
-            if event.type == "response.output_audio.delta":
+            elif event.type == "response.output_audio_transcript.delta":
+                self.on_receive_transcript_delta(event.delta)
+
+            elif event.type == "response.output_audio.delta":
                 self.on_receive_audio_delta(event.delta)
-                continue
-                print("\n[Recived audio delta]")
 
-            if event.type == "error":
+            elif event.type == "response.done":
+                print("\n[Response complete]")
+                self.listening_to_audio_input = True  # resume sending audio input
+
+            elif event.type == "error":
                 print(event.error.type)
                 print(event.error.code)
                 print(event.error.event_id)
                 print(event.error.message)
-
-            elif event.type == "response.done":
-                print("\n[Response complete]")
-                break
 
     async def close(self):
         """Clean up streams and realtime connection."""
@@ -228,10 +244,6 @@ if __name__ == "__main__":
 
         print("Starting listen and respond...")
         await audio_manager.listen_and_respond()
-        # sleep 5 secs
-        await asyncio.sleep(5)
-        print("Starting listen and respond again...")
-        await audio_manager.listen_and_respond("happy")
 
         print("Finished listen and respond.")
         await audio_manager.close()

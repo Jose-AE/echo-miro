@@ -8,5 +8,5 @@ from echo_miro import EchoMiro
 
 
 if __name__ == "__main__":
-    echo_miro = EchoMiro(camera_index=0)
+    echo_miro = EchoMiro(camera_index=0, fullscreen=False)
     echo_miro.run()

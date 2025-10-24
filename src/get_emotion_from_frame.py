@@ -1,6 +1,4 @@
 import cv2
-import mediapipe as mp
-import numpy as np
 import time
 from emotiefflib.facial_analysis import EmotiEffLibRecognizer, get_model_list
 
@@ -58,5 +56,7 @@ def get_emotion_from_frame(
 
     if print_processing_time:
         print(f"Emotion detection took {time.time() - processing_start_time:.3f} seconds.")
+
+    print(label)
 
     return (label, (x, y, w, h))
