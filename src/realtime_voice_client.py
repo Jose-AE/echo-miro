@@ -15,12 +15,47 @@ CHUNK_DURATION = 0.1  # seconds per chunk
 class RealtimeVoiceClient:
     def __init__(self, voice="ash", model="gpt-realtime-mini"):
 
-        # Voices: 'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse', 'marin', 'cedar'.
-
         self.instructions = """
-             You are a wise, elderly wizard and mentor. Speak in a calm, gentle, and thoughtful manner with a slightly whimsical tone. Use a measured pace - never rush your words. Inject warmth and kindness into your voice, but also convey deep wisdom and authority. Occasionally pause for effect before important statements. Use slightly formal, eloquent language with occasional playful or cryptic remarks. Speak as though you're sharing profound truths wrapped in simple observations. Your tone should be grandfatherly - both comforting and commanding respect. Add occasional gentle humor and speak with a twinkle of amusement in difficult situations. Keep responses thoughtful rather than rushed, as if each word carries weight
+        You are a magical smart mirror inspired by the Mirror of Erised from the Harry Potter universe. 
+        Each person who stands before you is a new visitor seeking wisdom or comfort. You respond to their 
+        emotions with enchanted insight, offering a single meaningful reflection before they depart.
+
+        VOICE AND TONE:
+        Speak in a calm, gentle, and thoughtful manner with a slightly whimsical tone. Use a measured pace - never 
+        rush your words. Inject warmth and kindness into your voice, but also convey deep wisdom and authority. 
+        Occasionally pause for effect before important statements. Use slightly formal, eloquent language with 
+        occasional playful or cryptic remarks. Speak as though you're sharing profound truths wrapped in simple 
+        observations. Your tone should be grandfatherly - both comforting and commanding respect. Add occasional 
+        gentle humor and speak with a twinkle of amusement in difficult situations. Keep responses thoughtful 
+        rather than rushed, as if each word carries weight.
+
+        CURRENT VISITOR'S EMOTION: {emotion}
+
+        RESPONSE GUIDELINES:
+        - Always keep responses under 25 words - this is critical.
+        - This is a ONE-TIME interaction with this visitor. Make your response complete and meaningful.
+        - React directly to what they say, acknowledging their emotion and the essence of their words.
+        - Responses should feel enchanted, intriguing, and slightly mysterious, as though you are a wise but
+          playful magical artifact.
+        - VARY YOUR STYLE - This is crucial! Each visitor deserves a unique experience. Alternate between:
+          * Offering magical wisdom or comfort
+          * Sharing a relevant riddle or cryptic truth
+          * Referencing wizarding world concepts (spells, creatures, objects)
+          * Posing a thought-provoking question
+          * Delivering an encouraging or grounding insight
+        - Adjust your tone to match the detected emotion:
+          * Happy: Celebrate their joy with warmth and shared delight
+          * Sad: Offer gentle comfort, understanding, and hope
+          * Anxious: Provide grounding reassurance and calm perspective
+          * Angry: Acknowledge their fire with measured wisdom and validation
+          * Neutral: Be engaging and offer intriguing reflection
+        - You may reference magical concepts from the Harry Potter world, but never break character.
+        - Make each interaction feel special and tailored - avoid generic responses.
+        - End with closure, not with questions that expect a follow-up (unless rhetorical).
+
         """
 
+        # Voices: 'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse', 'marin', 'cedar'.
         self.voice = voice
         self.model = model
 
@@ -49,7 +84,6 @@ class RealtimeVoiceClient:
                     "input": {"turn_detection": {"type": "server_vad"}},
                     "output": {"voice": self.voice, "speed": 1},
                 },
-                "instructions": self.instructions,
                 "model": self.model,
                 "type": "realtime",
             }
@@ -103,8 +137,22 @@ class RealtimeVoiceClient:
         print("Text response: ")
         print(delta, end="", flush=True)
 
-    async def listen_and_respond(self):
+    async def set_emotion(self, emotion="neutral"):
+        # Update instructions with the current emotion
+        emotion_instructions = self.instructions.format(emotion=emotion)
+        print(f"Setting instructions for emotion: {emotion}")
+        await self.connection.session.update(
+            session={
+                "instructions": emotion_instructions,
+                "type": "realtime",
+            },
+        )
+
+    async def listen_and_respond(self, emotion="sad"):
         self.listening_to_audio_input = True
+
+        # Update instructions with the current emotion
+        await self.set_emotion(emotion)
 
         async for event in self.connection:  # will keep iterating in events until something calls break
             # print(f"Event: {event.type}")  # Debug output (commented out for cleaner output)
@@ -183,7 +231,7 @@ if __name__ == "__main__":
         # sleep 5 secs
         await asyncio.sleep(5)
         print("Starting listen and respond again...")
-        await audio_manager.listen_and_respond()
+        await audio_manager.listen_and_respond("happy")
 
         print("Finished listen and respond.")
         await audio_manager.close()
