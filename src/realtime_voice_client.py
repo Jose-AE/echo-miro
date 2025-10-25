@@ -279,7 +279,7 @@ if __name__ == "__main__":
         await audio_manager.init()
 
         # Test microphone first
-        if not audio_manager.mic_playback_enabled:
+        if audio_manager.mic_playback_enabled:
             print("\n=== MICROPHONE TEST ===")
             await audio_manager.test_microphone(duration=5)
             print("\nIf you heard yourself, the microphone is working!\n")
