@@ -80,7 +80,7 @@ class EchoMiro:
             return ""
         return os.path.join(image_folder, random.choice(image_files))
 
-    def opencv_thread(self):
+    def opencv_loop(self):
         while True:
             self.frame_count += 1
             ret, frame = self.video_capture.read()
@@ -232,8 +232,15 @@ class EchoMiro:
 
             print("\n💬 Interaction complete. Waiting for next user...\n")
 
+
+
     def run(self):
-        t1 = threading.Thread(target=self.opencv_thread, daemon=True)
+        # Start the async __main in a separate thread
+        def run_async_main():
+            asyncio.run(self.__main())
+        
+        t1 = threading.Thread(target=run_async_main, daemon=True)
         t1.start()
 
-        asyncio.run(self.__main())
+        # Run OpenCV loop in the main thread
+        self.opencv_loop()
