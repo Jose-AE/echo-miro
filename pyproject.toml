@@ -1,0 +1,23 @@
+[project]
+name = "echo-miro"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = "==3.10.*"
+dependencies = [
+    "emotiefflib>=1.1.1",
+    "mediapipe>=0.10.18",
+    "numpy>=1.26.4",
+    "openai[realtime]>=2.6.1",
+    "pyaudio>=0.2.14",
+    "python-dotenv>=1.1.1",
+    "timm>=1.0.21",
+]
+
+[tool.uv]
+required-environments = [
+    "sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "sys_platform == 'darwin' and platform_machine == 'x86_64'",
+    "sys_platform == 'win32' and platform_machine == 'AMD64'",
+    "sys_platform == 'linux' and platform_machine == 'aarch64'", # 64-bit Raspberry Pi OS
+]
