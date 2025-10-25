@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 SAMPLE_RATE = 24000
 CHANNELS = 1
-CHUNK_DURATION = 0.2  # seconds per chunk
+CHUNK_DURATION = 0.1
 
 
 class RealtimeVoiceClient:
@@ -98,10 +98,10 @@ class RealtimeVoiceClient:
 
     def __init_audio_streams(self):
         self.input_stream = sd.InputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
+            samplerate=16000,
+            channels=1,
             dtype="int16",
-            blocksize=int(SAMPLE_RATE * CHUNK_DURATION),
+            blocksize=int(16000 * 0.2),
         )
         self.input_stream.start()
 
@@ -109,6 +109,8 @@ class RealtimeVoiceClient:
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
             dtype="int16",
+            blocksize=int(SAMPLE_RATE * CHUNK_DURATION),
+            latency="high",  # Higher latency to prevent underruns
         )
         self.output_stream.start()
 
