@@ -16,7 +16,7 @@ INPUT_CHUNK_DURATION = 0.2
 
 
 class RealtimeVoiceClient:
-    def __init__(self, voice="ash", model="gpt-realtime-mini"):
+    def __init__(self, voice="ash", model="gpt-realtime-mini", input_device=None):
 
         self.greeting_instructions = """
         Start by Asking the visitor why he feels that emotion
@@ -65,6 +65,7 @@ class RealtimeVoiceClient:
         # Voices: 'alloy', 'ash', 'ballad', 'coral', 'echo', 'sage', 'shimmer', 'verse', 'marin', 'cedar'.
         self.voice = voice
         self.model = model
+        self.input_device = input_device
 
         # Lifecycle flags and handles
         self.listening_to_audio_input = False
@@ -100,10 +101,23 @@ class RealtimeVoiceClient:
         print("RealtimeVoiceClient initialized.")
 
     def __init_audio_streams(self):
+        # Auto-detect input device if not specified
+        if self.input_device is None:
+            self.input_device = sd.default.device[0]  # Get default input device
+            print(f"Auto-detected input device: {self.input_device}")
+
+        # Get device info to check capabilities
+        device_info = sd.query_devices(self.input_device, "input")
+        print(f"Using input device: {device_info['name']}")
+        print(f"Max input channels: {device_info['max_input_channels']}")
+
+        # Use the minimum of 1 channel or max available channels
+        input_channels = min(1, device_info["max_input_channels"])
+
         self.input_stream = sd.InputStream(
             samplerate=INPUT_SAMPLE_RATE,
-            channels=1,
-            device=1,
+            channels=input_channels,
+            device=self.input_device,
             dtype="int16",
             blocksize=int(INPUT_SAMPLE_RATE * INPUT_CHUNK_DURATION),
         )
@@ -150,12 +164,22 @@ class RealtimeVoiceClient:
     async def test_microphone(self, duration=5):
         """Test microphone by playing back input for the specified duration."""
 
-        print("Available input devices:")
+        print("\n=== Available Audio Devices ===")
+        print("Input devices:")
         for i, device in enumerate(sd.query_devices()):
             if device["max_input_channels"] > 0:
-                print(f"Input Device {i}: {device['name']}")
+                default_marker = " (DEFAULT)" if i == sd.default.device[0] else ""
+                print(f"  Device {i}: {device['name']}{default_marker}")
+                print(f"    Channels: {device['max_input_channels']}, Sample Rate: {device['default_samplerate']}")
 
-        print(f"Testing microphone for {duration} seconds. You should hear yourself...")
+        print("\nOutput devices:")
+        for i, device in enumerate(sd.query_devices()):
+            if device["max_output_channels"] > 0:
+                default_marker = " (DEFAULT)" if i == sd.default.device[1] else ""
+                print(f"  Device {i}: {device['name']}{default_marker}")
+                print(f"    Channels: {device['max_output_channels']}, Sample Rate: {device['default_samplerate']}")
+
+        print(f"\nTesting microphone for {duration} seconds. You should hear yourself...")
         self.listening_to_audio_input = True
         self.mic_playback_enabled = True
         await asyncio.sleep(duration)
@@ -275,6 +299,8 @@ class RealtimeVoiceClient:
 if __name__ == "__main__":
 
     async def main():
+        # You can specify input_device by index or name, or leave as None for auto-detection
+        # Example: audio_manager = RealtimeVoiceClient(voice="ash", model="gpt-realtime-mini", input_device=3)
         audio_manager = RealtimeVoiceClient(voice="ash", model="gpt-realtime-mini")
         await audio_manager.init()
 
