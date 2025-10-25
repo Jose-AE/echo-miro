@@ -150,53 +150,58 @@ class RealtimeVoiceClient:
         emotion="sad",
         get_user_is_engaged=None,
     ):
-        # Update instructions with the current emotion
-        await self.set_emotion(emotion)
 
-        # Clear Audio for new convo
-        # await self.connection.send({"type": "input_audio_buffer.clear"})
+        try:
+            # Update instructions with the current emotion
+            await self.set_emotion(emotion)
 
-        # Don't stream mic input during the greeting
-        self.listening_to_audio_input = False
-        await self.connection.send(
-            {
-                "type": "response.create",
-                "response": {"instructions": self.instructions.format(emotion=emotion) + self.greeting_instructions},
-            }
-        )
+            # Clear Audio for new convo
+            # await self.connection.send({"type": "input_audio_buffer.clear"})
 
-        async for event in self.connection:  # will keep iterating in events until something calls break
-            # print(f"[EVENT] {event.type}")  # Debug output (commented out for cleaner output)
+            # Don't stream mic input during the greeting
+            self.listening_to_audio_input = False
+            await self.connection.send(
+                {
+                    "type": "response.create",
+                    "response": {"instructions": self.instructions.format(emotion=emotion) + self.greeting_instructions},
+                }
+            )
 
-            if get_user_is_engaged and not get_user_is_engaged():  ## check if user is still engaged
-                print("User is no longer engaged. Ending listen_and_respond.")
-                break
+            async for event in self.connection:  # will keep iterating in events until something calls break
+                # print(f"[EVENT] {event.type}")  # Debug output (commented out for cleaner output)
 
-            if event.type == "input_audio_buffer.speech_started":
-                print("\n[Speech detected]")
+                if get_user_is_engaged and not get_user_is_engaged():  ## check if user is still engaged
+                    print("User is no longer engaged. Ending listen_and_respond.")
+                    break
 
-            elif event.type == "input_audio_buffer.speech_stopped":
-                print("\n[Speech ended, waiting for response...]")
-                self.listening_to_audio_input = False  # pause sending audio input
+                if event.type == "input_audio_buffer.speech_started":
+                    print("\n[Speech detected]")
 
-            elif event.type == "response.created":
-                print("\n[Response started]")
+                elif event.type == "input_audio_buffer.speech_stopped":
+                    print("\n[Speech ended, waiting for response...]")
+                    self.listening_to_audio_input = False  # pause sending audio input
 
-            elif event.type == "response.output_audio_transcript.delta":
-                self.on_receive_transcript_delta(event.delta)
+                elif event.type == "response.created":
+                    print("\n[Response started]")
 
-            elif event.type == "response.output_audio.delta":
-                self.on_receive_audio_delta(event.delta)
+                elif event.type == "response.output_audio_transcript.delta":
+                    self.on_receive_transcript_delta(event.delta)
 
-            elif event.type == "response.done":
-                print("\n[Response complete]")
-                self.listening_to_audio_input = True  # resume sending audio input
+                elif event.type == "response.output_audio.delta":
+                    self.on_receive_audio_delta(event.delta)
 
-            elif event.type == "error":
-                print(event.error.type)
-                print(event.error.code)
-                print(event.error.event_id)
-                print(event.error.message)
+                elif event.type == "response.done":
+                    print("\n[Response complete]")
+                    self.listening_to_audio_input = True  # resume sending audio input
+
+                elif event.type == "error":
+                    print(event.error.type)
+                    print(event.error.code)
+                    print(event.error.event_id)
+                    print(event.error.message)
+
+        except Exception as e:
+            print(f"Error in listen_and_respond: {e}")
 
     async def close(self):
         """Clean up streams and realtime connection."""
