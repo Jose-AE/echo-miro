@@ -59,7 +59,7 @@ class EchoMiro:
         self.__init_opencv()
 
     def __init_opencv(self):
-        self.video_capture = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
+        self.video_capture = cv2.VideoCapture(self.camera_index)
         if not self.video_capture.isOpened():
             print("Error: Could not open webcam.")
             exit()

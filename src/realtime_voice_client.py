@@ -66,6 +66,7 @@ class RealtimeVoiceClient:
         # Lifecycle flags and handles
         self.listening_to_audio_input = False
         self.audio_task: asyncio.Task | None = None
+        self.mic_playback_enabled = False  # Flag to enable/disable mic playback
 
         # Audio streams
         self.input_stream: sd.InputStream | None = None
@@ -120,6 +121,11 @@ class RealtimeVoiceClient:
             if self.listening_to_audio_input:
                 if self.input_stream and self.input_stream.read_available >= read_size:
                     data, _ = self.input_stream.read(read_size)
+                    
+                    # Playback mic input if enabled
+                    if self.mic_playback_enabled and self.output_stream:
+                        self.output_stream.write(data)
+                    
                     audio_b64 = base64.b64encode(data.tobytes()).decode("utf-8")
                     await self.connection.send({"type": "input_audio_buffer.append", "audio": audio_b64})
 
@@ -133,6 +139,16 @@ class RealtimeVoiceClient:
 
     def on_receive_transcript_delta(self, delta):
         print(delta, end="", flush=True)
+
+    async def test_microphone(self, duration=5):
+        """Test microphone by playing back input for the specified duration."""
+        print(f"Testing microphone for {duration} seconds. You should hear yourself...")
+        self.listening_to_audio_input = True
+        self.mic_playback_enabled = True
+        await asyncio.sleep(duration)
+        self.listening_to_audio_input = False
+        self.mic_playback_enabled = False
+        print("Microphone test complete.")
 
     async def set_emotion(self, emotion="neutral"):
         # Update instructions with the current emotion
@@ -246,6 +262,12 @@ if __name__ == "__main__":
     async def main():
         audio_manager = RealtimeVoiceClient(voice="ash", model="gpt-realtime-mini")
         await audio_manager.init()
+
+        # Test microphone first
+        if audio_manager.mic_playback_enabled:
+            print("\n=== MICROPHONE TEST ===")
+            await audio_manager.test_microphone(duration=5)
+            print("\nIf you heard yourself, the microphone is working!\n")
 
         print("Starting listen and respond...")
         await audio_manager.listen_and_respond()
