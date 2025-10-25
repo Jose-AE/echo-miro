@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import contextlib
+import platform
 import sounddevice as sd
 import numpy as np
 from openai import AsyncOpenAI
@@ -103,7 +104,26 @@ class RealtimeVoiceClient:
     def __init_audio_streams(self):
         # Auto-detect input device if not specified
         if self.input_device is None:
-            self.input_device = sd.default.device[0]  # Get default input device
+            # Check if running on Raspberry Pi
+            is_raspi = platform.machine() in ["armv7l", "aarch64"] and platform.system() == "Linux"
+
+            if is_raspi:
+                # On Raspberry Pi, look for USB audio device
+                usb_device = None
+                for i, device in enumerate(sd.query_devices()):
+                    if device["max_input_channels"] > 0 and "USB" in device["name"]:
+                        usb_device = i
+                        print(f"Found USB audio device on Raspberry Pi: {device['name']}")
+                        break
+
+                if usb_device is not None:
+                    self.input_device = usb_device
+                else:
+                    print("No USB audio device found on Raspberry Pi, using default")
+                    self.input_device = sd.default.device[0]
+            else:
+                self.input_device = sd.default.device[0]
+
             print(f"Auto-detected input device: {self.input_device}")
 
         # Get device info to check capabilities
