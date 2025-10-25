@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 SAMPLE_RATE = 24000
 CHANNELS = 1
-CHUNK_DURATION = 0.1  # seconds per chunk
+CHUNK_DURATION = 0.2  # seconds per chunk
 
 
 class RealtimeVoiceClient:
@@ -101,6 +101,7 @@ class RealtimeVoiceClient:
             samplerate=SAMPLE_RATE,
             channels=CHANNELS,
             dtype="int16",
+            blocksize=int(SAMPLE_RATE * CHUNK_DURATION),
         )
         self.input_stream.start()
 
@@ -121,11 +122,11 @@ class RealtimeVoiceClient:
             if self.listening_to_audio_input:
                 if self.input_stream and self.input_stream.read_available >= read_size:
                     data, _ = self.input_stream.read(read_size)
-                    
+
                     # Playback mic input if enabled
                     if self.mic_playback_enabled and self.output_stream:
                         self.output_stream.write(data)
-                    
+
                     audio_b64 = base64.b64encode(data.tobytes()).decode("utf-8")
                     await self.connection.send({"type": "input_audio_buffer.append", "audio": audio_b64})
 
