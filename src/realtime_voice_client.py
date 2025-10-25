@@ -7,9 +7,12 @@ from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
 
-SAMPLE_RATE = 24000
-CHANNELS = 1
-CHUNK_DURATION = 0.1
+OUTPUT_SAMPLE_RATE = 24000
+OUTPUT_CHUNK_DURATION = 0.1
+
+
+INPUT_SAMPLE_RATE = 24000
+INPUT_CHUNK_DURATION = 0.2
 
 
 class RealtimeVoiceClient:
@@ -98,18 +101,18 @@ class RealtimeVoiceClient:
 
     def __init_audio_streams(self):
         self.input_stream = sd.InputStream(
-            samplerate=16000,
+            samplerate=INPUT_SAMPLE_RATE,
             channels=1,
             dtype="int16",
-            blocksize=int(16000 * 0.2),
+            blocksize=int(INPUT_SAMPLE_RATE * INPUT_CHUNK_DURATION),
         )
         self.input_stream.start()
 
         self.output_stream = sd.OutputStream(
-            samplerate=SAMPLE_RATE,
-            channels=CHANNELS,
+            samplerate=OUTPUT_SAMPLE_RATE,
+            channels=1,
             dtype="int16",
-            blocksize=int(SAMPLE_RATE * CHUNK_DURATION),
+            blocksize=int(OUTPUT_SAMPLE_RATE * OUTPUT_CHUNK_DURATION),
             latency="high",  # Higher latency to prevent underruns
         )
         self.output_stream.start()
@@ -119,7 +122,7 @@ class RealtimeVoiceClient:
 
     async def read_and_send_audio_input_coroutine(self):
         """Background task to read audio input and send to realtime connection."""
-        read_size = int(SAMPLE_RATE * CHUNK_DURATION)
+        read_size = int(INPUT_SAMPLE_RATE * INPUT_CHUNK_DURATION)
         while True:
             if self.listening_to_audio_input:
                 if self.input_stream and self.input_stream.read_available >= read_size:
