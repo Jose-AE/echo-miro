@@ -103,6 +103,7 @@ class RealtimeVoiceClient:
         self.input_stream = sd.InputStream(
             samplerate=INPUT_SAMPLE_RATE,
             channels=1,
+            device=1,
             dtype="int16",
             blocksize=int(INPUT_SAMPLE_RATE * INPUT_CHUNK_DURATION),
         )
@@ -148,6 +149,12 @@ class RealtimeVoiceClient:
 
     async def test_microphone(self, duration=5):
         """Test microphone by playing back input for the specified duration."""
+
+        print("Available input devices:")
+        for i, device in enumerate(sd.query_devices()):
+            if device["max_input_channels"] > 0:
+                print(f"Input Device {i}: {device['name']}")
+
         print(f"Testing microphone for {duration} seconds. You should hear yourself...")
         self.listening_to_audio_input = True
         self.mic_playback_enabled = True
@@ -193,6 +200,7 @@ class RealtimeVoiceClient:
                 # print(f"[EVENT] {event.type}")  # Debug output (commented out for cleaner output)
 
                 if get_user_is_engaged and not get_user_is_engaged():  ## check if user is still engaged
+                    self.listening_to_audio_input = False
                     print("User is no longer engaged. Ending listen_and_respond.")
                     break
 
@@ -204,6 +212,7 @@ class RealtimeVoiceClient:
                     self.listening_to_audio_input = False  # pause sending audio input
 
                 elif event.type == "response.created":
+                    self.listening_to_audio_input = False  # pause sending audio input
                     print("\n[Response started]")
 
                 elif event.type == "response.output_audio_transcript.delta":
@@ -270,7 +279,7 @@ if __name__ == "__main__":
         await audio_manager.init()
 
         # Test microphone first
-        if audio_manager.mic_playback_enabled:
+        if not audio_manager.mic_playback_enabled:
             print("\n=== MICROPHONE TEST ===")
             await audio_manager.test_microphone(duration=5)
             print("\nIf you heard yourself, the microphone is working!\n")
