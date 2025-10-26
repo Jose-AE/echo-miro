@@ -83,23 +83,28 @@ class RealtimeVoiceClient:
         self.connection = None
 
     async def init(self):
-        load_dotenv()
-        self.client = AsyncOpenAI()
-        self.connection_context = self.client.realtime.connect(model=self.model)
-        self.connection = await self.connection_context.__aenter__()
 
-        await self.connection.session.update(
-            session={
-                "audio": {
-                    "input": {"turn_detection": {"type": "server_vad"}},
-                    "output": {"voice": self.voice, "speed": 1},
-                },
-                "model": self.model,
-                "type": "realtime",
-            }
-        )
-        self.__init_audio_streams()
-        print("RealtimeVoiceClient initialized.")
+        try:
+            load_dotenv()
+            self.client = AsyncOpenAI()
+            self.connection_context = self.client.realtime.connect(model=self.model)
+            self.connection = await self.connection_context.__aenter__()
+
+            await self.connection.session.update(
+                session={
+                    "audio": {
+                        "input": {"turn_detection": {"type": "server_vad"}},
+                        "output": {"voice": self.voice, "speed": 1},
+                    },
+                    "model": self.model,
+                    "type": "realtime",
+                }
+            )
+            self.__init_audio_streams()
+            print("RealtimeVoiceClient initialized.")
+        except Exception as e:
+            # Handle any other unhandled exception
+            print(f"Error occured during Realtime client init: {e}")
 
     def __init_audio_streams(self):
         # Auto-detect input device if not specified

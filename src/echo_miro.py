@@ -99,6 +99,7 @@ class EchoMiro:
 
             # Wait for user to face the camera
             if not self.opencv_controller.is_user_engaged():
+                self.opencv_controller.set_backround_image(None)
                 print("Waiting for user to face the camera...")
                 await asyncio.sleep(1)
                 continue
