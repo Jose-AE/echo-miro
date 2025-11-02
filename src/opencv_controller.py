@@ -9,7 +9,7 @@ class OpenCVController:
 
     def __init__(
         self,
-        mask_face=True,
+        mask_face=False,
         show_debugs=False,
         camera_index=0,
         screen_resolution=(600, 1024),
@@ -31,7 +31,8 @@ class OpenCVController:
         self.fps = 0
 
         # Init emotion and face rec models
-        model_name = get_model_list()[0]
+        # print(get_model_list())
+        model_name = "mbf_va_mtl"  # ['enet_b0_8_best_vgaf', 'enet_b0_8_best_afew', 'enet_b2_8', 'enet_b0_8_va_mtl', 'enet_b2_7', 'mbf_va_mtl', 'mobilevit_va_mtl']
         self.emotion_recognizer = EmotiEffLibRecognizer(engine="onnx", model_name=model_name, device="cpu")
         self.face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
 
@@ -114,6 +115,11 @@ class OpenCVController:
             cv2.typing.MatLike: The frame with the background replaced.
         """
 
+        if self.user_is_engaged == False:
+            # If user not engaged, show solid color background
+            self.frame = np.zeros(self.frame.shape, dtype=np.uint8)
+            return  # No background replacement if user not engaged
+
         # Convert frame to RGB for MediaPipe
         rgb_frame = cv2.cvtColor(self.frame, cv2.COLOR_BGR2RGB)
         results = self.selfie_segmenter.process(rgb_frame)
@@ -149,7 +155,6 @@ class OpenCVController:
         Call this function each frame to update fps
         """
 
-        self.frame_count += 1
         elapsed_time = time.time() - self.frame_start_time
         if elapsed_time > 1.0:
             self.fps = self.frame_count / elapsed_time  # set fps

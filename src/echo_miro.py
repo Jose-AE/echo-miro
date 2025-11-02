@@ -25,9 +25,7 @@ class EchoMiro:
         self.debug_mode = debug_mode
 
         self.realtime_voice_client = RealtimeVoiceClient()
-        self.opencv_controller = OpenCVController(
-            show_debugs=debug_mode, fullscreen=not debug_mode, mask_face=not debug_mode, portrait_mode=not debug_mode
-        )
+        self.opencv_controller = OpenCVController(show_debugs=debug_mode, fullscreen=not debug_mode, portrait_mode=not debug_mode)
 
         # Emotion collection state
         self.prevalent_emotion = None
@@ -47,7 +45,7 @@ class EchoMiro:
 
         self.opencv_controller.set_backround_image(rng_image_path)
 
-    async def set_prevalent_emotion(self, seconds=5):
+    def set_prevalent_emotion(self, seconds=5):
         """
         Collects emotions over the specified period and returns the most prevalent one.
         Ignores None values (when no face is detected).
@@ -70,7 +68,7 @@ class EchoMiro:
                     dict_emotion_counts[current_emotion] = 0
                 dict_emotion_counts[current_emotion] += 1
 
-            await asyncio.sleep(0.1)  # Sample emotion 10 times per second
+            time.sleep(0.01)  # Small delay to prevent busy-waiting
 
         self.is_collecting_emotions = False
         self.collection_start_time = None
@@ -101,16 +99,16 @@ class EchoMiro:
             if not self.opencv_controller.is_user_engaged():
                 self.opencv_controller.set_backround_image(None)
                 print("Waiting for user to face the camera...")
-                await asyncio.sleep(1)
+                # await asyncio.sleep(1)
                 continue
 
             # User is now facing the camera, collect emotions for 5 seconds and set prevalent emotion
             print("\n🎥 User detected! Collecting emotions for 5 seconds...")
-            await self.set_prevalent_emotion(seconds=self.collection_duration)
+            self.set_prevalent_emotion(seconds=self.collection_duration)
 
             if self.prevalent_emotion is None:
                 print("⚠️ Could not determine emotion. User may have looked away.")
-                await asyncio.sleep(1)
+                # await asyncio.sleep(1)
                 continue
 
             # Set random background image based on prevalent emotion
