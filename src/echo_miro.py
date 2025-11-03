@@ -21,11 +21,9 @@ Emotion = Literal[
 
 
 class EchoMiro:
-    def __init__(self, debug_mode=False):
-        self.debug_mode = debug_mode
-
+    def __init__(self, debug_mode=False, fullscreen=True, portrait_mode=True):
         self.realtime_voice_client = RealtimeVoiceClient()
-        self.opencv_controller = OpenCVController(show_debugs=debug_mode, fullscreen=not debug_mode, portrait_mode=not debug_mode)
+        self.opencv_controller = OpenCVController(show_debugs=debug_mode, fullscreen=fullscreen, portrait_mode=portrait_mode)
 
         # Emotion collection state
         self.prevalent_emotion = None
