@@ -1,139 +1,114 @@
-# Echo Miro - Hand Tracking Mirror
+# Mirror of Erised - Interactive Smart Mirror
 
-A real-time hand tracking application that creates a mirror effect with hand skeleton overlay using MediaPipe and OpenCV.
+An emotion-aware smart mirror inspired by Harry Potter that detects user emotions and creates immersive, conversational experiences using AI.
+
+## Overview
+
+This project reimagines the Mirror of Erised as an interactive pervasive computing system. The mirror detects user presence, recognizes emotional states, and adapts its responses with personalized backgrounds and conversational AI—all housed in a 3D-printed Harry Potter-inspired enclosure.
 
 ## Features
 
-- Real-time hand detection and tracking
-- Hand skeleton visualization with landmark points
-- Mirror effect for natural interaction
-- Support for up to 2 hands simultaneously
-- Cross-platform support (Windows, Linux, macOS)
+- **Real-time Emotion Detection**: Uses webcam + EmotiEffLib to identify emotions (happiness, sadness, anger, surprise, etc.)
+- **Dynamic Backgrounds**: Displays emotion-matched immersive scenes generated with Midjourney
+- **AI Conversation**: Natural dialogue powered by OpenAI Realtime API with mystical Harry Potter-style responses
+- **Background Segmentation**: Separates user from background using MediaPipe for AR-like overlay effect
+- **Auto-activation**: Detects faces and initiates interaction; returns to mirror mode when idle
 
-## Prerequisites
+## Hardware Components
 
-### For Local Installation
-- Python 3.8 or higher
-- Webcam/Camera device
-- Git
+- Raspberry Pi 5 (8GB RAM)
+- 10.1" LCD Display (1024x600)
+- Two-way acrylic mirror (30% transparency)
+- Logitech C510 720p webcam
+- Mini sound-bar speaker
+- Custom 3D-printed enclosure
 
-### For Docker Installation
-- Docker Engine 20.10+
-- Docker Compose 2.0+
-- Webcam/Camera device
-- **Linux/macOS**: X11 server for GUI display
-- **Windows**: X11 server (like VcXsrv or Xming) for GUI display
+## Software Stack
 
-## Installation and Usage
+- **OpenCV**: Video processing and frame manipulation
+- **EmotiEffLib**: Lightweight emotion recognition
+- **MediaPipe**: Real-time face/body segmentation
+- **OpenAI Realtime API**: Speech-to-text, text-to-speech, and conversational AI
+- **uv**: Python package management
 
-### Option 1: Local Installation
+## Installation
 
-1. **Clone the repository:**
-   ```bash
-   git clone <repository-url>
-   cd echo-miro
-   ```
-
-2. **Create and activate virtual environment:**
-   ```bash
-   # Windows
-   python -m venv py_modules
-   py_modules\Scripts\activate
-
-   # Linux/macOS
-   python3 -m venv py_modules
-   source py_modules/bin/activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Run the application:**
-   ```bash
-   python src/main.py
-   ```
-
-
-## Controls
-
-- **Q key**: Quit the application
-- **Camera**: Make sure your camera is not being used by other applications
-
-## Troubleshooting
-
-### Common Issues
-
-**Camera not detected:**
-- Ensure no other application is using the camera
-- Check camera permissions
-- Try different camera indices (modify `cv2.VideoCapture(0)` to `cv2.VideoCapture(1)`, etc.)
-
-**Docker GUI not showing (Linux/macOS):**
+### Prerequisites
 ```bash
-# Allow X11 connections
-xhost +local:docker
+# Update system
+sudo apt update && sudo apt upgrade -y
 
-# Check DISPLAY variable
-echo $DISPLAY
+# Install uv python manager
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-**Docker GUI not showing (Windows):**
-- Ensure X11 server (VcXsrv/Xming) is running
-- Verify "Disable access control" is checked in X11 server settings
-- Check firewall settings for X11 server
-
-**Permission denied for camera device:**
+### Python Dependencies
 ```bash
-# Linux: Add user to video group
-sudo usermod -a -G video $USER
-# Then logout and login again
+# Clone repository
+git clone https://github.com/Jose-AE/echo-miro.git
+cd echo-miro
 
-# Or run with privileged mode (less secure)
-docker run --privileged ...
+# Install deps with uv (recommended)
+uv sync
 ```
 
-**ModuleNotFoundError:**
-- Ensure all dependencies are installed: `pip install -r requirements.txt`
-- Check Python version compatibility (3.8+)
-
-### Performance Tips
-
-- Ensure good lighting for better hand detection
-- Keep hands within camera frame
-- Close unnecessary applications to free up camera resources
-- For better performance, consider reducing detection confidence in `src/main.py`
-
-## Development
-
-### Project Structure
+### Configuration
+1. Set up OpenAI API key:
+```bash
+export OPENAI_API_KEY='your-api-key-here'
 ```
-echo-miro/
+
+2. Organize emotion background images in folders:
+```
+backgrounds/
+├── anger/
+├── happiness/
+├── sadness/
+├── fear/
+├── disgust/
+├── surprise/
+├── neutral/
+└── contempt/
+```
+
+## Usage
+
+### Run on Boot (Recommended)
+```bash
+# Edit autostart
+mkdir -p ~/.config/autostart
+nano ~/.config/autostart/echo-miro.desktop
+
+#Paste inside file (replace <dir_of_cloned_repo>):
+[Desktop Entry]
+Type=Application
+Name=Echo Miro
+Exec=bash -c "cd <dir_of_cloned_repo> && /home/echo-miro/.local/bin/uv run src/main.py"
+StartupNotify=false
+```
+
+### Manual Start
+```bash
+uv run .src/main.py
+```
+
+### User Interaction Flow
+1. Stand in front of mirror (camera at eye level)
+2. Wait ~5 seconds for emotion detection
+3. Mirror displays emotion-matched background and initiates conversation
+4. Speak naturally after mirror finishes talking
+5. Walk away to return mirror to idle state
+
+## Project Structure
+
+```
+mirror-of-erised/
 ├── src/
-│   └── main.py          # Main application file
-├── requirements.txt     # Python dependencies
-├── Dockerfile          # Docker image configuration
-├── docker-compose.yml  # Docker Compose configuration
-├── .dockerignore       # Docker ignore file
-└── README.md           # This file
+│   ├── main.py                    # Entry point
+│   ├── echo_miro.py              # Main coordinator
+│   ├── realtime_voice_client.py  # Audio I/O with OpenAI
+│   └── opencv_controller.py      # Webcam + emotion detection
+├── backgrounds/                   # Emotion-specific images
+├── models/                        # 3D enclosure files (STL)
+└── requirements.txt
 ```
-
-### Customization
-
-You can modify the hand tracking parameters in `src/main.py`:
-- `max_num_hands`: Maximum number of hands to detect (1-2)
-- `min_detection_confidence`: Minimum confidence for hand detection (0.0-1.0)
-- `min_tracking_confidence`: Minimum confidence for hand tracking (0.0-1.0)
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
-
-## License
-
-This project is open source. Please check the license file for details.
