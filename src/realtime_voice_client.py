@@ -241,7 +241,7 @@ class RealtimeVoiceClient:
             await self.set_emotion(emotion)
 
             # Clear Audio for new convo
-            # await self.connection.send({"type": "input_audio_buffer.clear"})
+            await self.connection.send({"type": "input_audio_buffer.clear"})
 
             # Don't stream mic input during the greeting
             self.listening_to_audio_input = False
@@ -333,7 +333,7 @@ if __name__ == "__main__":
     async def main():
         # You can specify input_device by index or name, or leave as None for auto-detection
         # Example: audio_manager = RealtimeVoiceClient(voice="ash", model="gpt-realtime-mini", input_device=3)
-        audio_manager = RealtimeVoiceClient(voice="ash")
+        audio_manager = RealtimeVoiceClient(voice="alloy")
         await audio_manager.init()
 
         # Test microphone first
