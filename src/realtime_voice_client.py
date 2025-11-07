@@ -86,32 +86,45 @@ class RealtimeVoiceClient:
         self.connection = None
 
     async def init(self):
+        print("Waiting for realtime client to connect")
 
-        try:
-            load_dotenv()
-            self.client = AsyncOpenAI()
-            self.connection_context = self.client.realtime.connect(model=self.model)
-            self.connection = await self.connection_context.__aenter__()
+        # Retry connection with exponential backoff
+        max_retries = 10
+        retry_delay = 2  # Initial delay in seconds
 
-            await self.connection.session.update(
-                session={
-                    "audio": {
-                        "input": {
-                            "turn_detection": {
-                                "type": "semantic_vad",
-                            }
+        for attempt in range(1, max_retries + 1):
+            try:
+                load_dotenv()
+                self.client = AsyncOpenAI()
+                self.connection_context = self.client.realtime.connect(model=self.model)
+                self.connection = await self.connection_context.__aenter__()
+
+                await self.connection.session.update(
+                    session={
+                        "audio": {
+                            "input": {
+                                "turn_detection": {
+                                    "type": "semantic_vad",
+                                }
+                            },
+                            "output": {"voice": self.voice, "speed": 1},
                         },
-                        "output": {"voice": self.voice, "speed": 1},
-                    },
-                    "model": self.model,
-                    "type": "realtime",
-                }
-            )
-            self.__init_audio_streams()
-            print("RealtimeVoiceClient initialized.")
-        except Exception as e:
-            # Handle any other unhandled exception
-            print(f"Error occured during Realtime client init: {e}")
+                        "model": self.model,
+                        "type": "realtime",
+                    }
+                )
+                self.__init_audio_streams()
+                print("✅ Successfully connected to realtime client")
+                break  # Success, exit retry loop
+            except Exception as e:
+                if attempt < max_retries:
+                    print(f"❌ Connection failed (attempt {attempt}/{max_retries}): {e}")
+                    print(f"⏳ Retrying in {retry_delay} seconds...")
+                    await asyncio.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    print(f"❌ Failed to connect after {max_retries} attempts: {e}")
+                    raise  # Re-raise the exception after all retries failed
 
     def __init_audio_streams(self):
         # Auto-detect input device if not specified
@@ -288,7 +301,7 @@ class RealtimeVoiceClient:
                     print(event.error.message)
 
         except Exception as e:
-            print(f"Error in listen_and_respond: {e}")
+            print(f"\033[41mError in listen_and_respond: {e}\033[0m")
 
     async def close(self):
         """Clean up streams and realtime connection."""

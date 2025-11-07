@@ -85,7 +85,7 @@ class EchoMiro:
         print(f"{'='*50}\n")
 
     async def __main(self):
-        print("Waiting for realtime client to connect")
+        # Initialize the realtime voice client
         await self.realtime_voice_client.init()
 
         while True:
